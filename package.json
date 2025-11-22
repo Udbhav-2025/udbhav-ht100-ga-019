@@ -1,0 +1,40 @@
+{
+  "name": "agentic-marketer",
+  "version": "1.0.0",
+  "description": "AI-powered autonomous marketing campaign creator",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "check": "node scripts/check-env.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.17.0",
+    "@google/generative-ai": "^0.24.1",
+    "@types/node": "^20.11.5",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "autoprefixer": "^10.4.17",
+    "axios": "^1.6.5",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.4.1",
+    "framer-motion": "^11.0.3",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.316.0",
+    "mongoose": "^8.1.1",
+    "next": "^14.1.0",
+    "openai": "^4.26.0",
+    "postcss": "^8.4.33",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
+    "swr": "^2.2.4",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "eslint-config-next": "^14.1.0"
+  }
+}
