@@ -107,7 +107,13 @@ function mapCampaignToPost(campaign: Campaign): TimelinePost[] {
             title = post.slogan;
             content = post.caption.substring(0, 100) + (post.caption.length > 100 ? '...' : '');
         } else if (platform === 'linkedin' && campaign.generatedContent?.linkedin?.postDrafts?.[0]) {
-            content = campaign.generatedContent.linkedin.postDrafts[0].substring(0, 100) + '...';
+            const postDraft = campaign.generatedContent.linkedin.postDrafts[0];
+            // Handle both string and object formats
+            if (typeof postDraft === 'string') {
+                content = postDraft.substring(0, 100) + '...';
+            } else if (typeof postDraft === 'object' && postDraft !== null) {
+                content = (postDraft.body || postDraft.subject || JSON.stringify(postDraft)).substring(0, 100) + '...';
+            }
         } else if (platform === 'twitter' && campaign.generatedContent?.twitter?.adLines?.[0]) {
             title = campaign.generatedContent.twitter.adLines[0];
             content = title;
@@ -160,6 +166,7 @@ export default function Timeline() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
+    const [hoveredPostId, setHoveredPostId] = useState<string | null>(null);
 
     useEffect(() => {
         // Wait for auth to be ready and user to be authenticated
@@ -279,6 +286,11 @@ export default function Timeline() {
         );
     }
 
+    // Sort posts by date for horizontal timeline (oldest to newest)
+    const sortedPosts = [...posts].sort((a, b) => {
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+
     return (
         <div className="w-full">
             <div className="flex items-center justify-between mb-6 sm:mb-8">
@@ -294,127 +306,235 @@ export default function Timeline() {
                     />
                 </button>
             </div>
-            
-            {!isExpanded && posts.length > 0 && (
-                <div className="mb-4">
-                    <p className="text-sm text-gray-400">
-                        Showing {Math.min(3, posts.length)} of {posts.length} items. Click "Expand" to view all.
-                    </p>
-                </div>
-            )}
 
-            <div className="relative">
-                {/* Vertical Line */}
-                <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-white/10" />
+            {!isExpanded ? (
+                // Collapsed: Horizontal Timeline with Dots
+                <div className="relative py-8">
+                    {/* Horizontal Line */}
+                    <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/10 -translate-y-1/2" />
+                    
+                    {/* Dots Container */}
+                    <div className="relative flex items-center justify-between px-4">
+                        {sortedPosts.map((post, index) => {
+                            const config = platformConfig[post.platform];
+                            const Icon = config.icon;
+                            const isHovered = hoveredPostId === post.id;
 
-                <div className="space-y-8">
-                    {(isExpanded ? posts : posts.slice(0, 3)).map((post, index) => {
-                        const config = platformConfig[post.platform];
-                        const Icon = config.icon;
-                        const isExpanded = expandedId === post.id;
-
-                        return (
-                            <motion.div
-                                key={post.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                whileHover={{ scale: 1.02 }}
-                                className="relative pl-20"
-                            >
-                                {/* Timeline Dot */}
-                                <div className={`absolute left-6 -translate-x-1/2 w-4 h-4 rounded-full border-2 border-slate-900 shadow-lg z-10 ${config.bg}`} />
-
-                                {/* Card */}
-                                <motion.div
-                                    className="group relative bg-white/5 backdrop-blur-sm rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-l-4 overflow-hidden cursor-pointer border-white/10 hover:border-white/20"
-                                    style={{ borderLeftColor: config.borderColor }}
-                                    onClick={() => toggleExpand(post.id)}
-                                    whileHover={{ y: -2 }}
+                            return (
+                                <div
+                                    key={post.id}
+                                    className="relative flex-1 flex justify-center"
+                                    onMouseEnter={() => setHoveredPostId(post.id)}
+                                    onMouseLeave={() => setHoveredPostId(null)}
                                 >
-                                    {/* Header */}
-                                    <div className="p-4">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <div className={`p-2 rounded-lg bg-white/10 backdrop-blur-sm ${config.color}`}>
-                                                    <Icon size={20} className="text-white" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                                                        {post.platform} • {post.type}
-                                                    </span>
-                                                    <h3 className="text-base font-semibold text-white mt-0.5 line-clamp-1">
-                                                        {post.title}
-                                                    </h3>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-sm text-white/60">
-                                                <Calendar size={14} />
-                                                <span>{post.date}</span>
+                                    {/* Dot */}
+                                    <motion.div
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        transition={{ delay: index * 0.05 }}
+                                        className="relative z-10"
+                                    >
+                                        <motion.div
+                                            className={`w-4 h-4 rounded-full ${config.bg} border-2 border-slate-900 shadow-lg cursor-pointer relative`}
+                                            whileHover={{ scale: 1.5 }}
+                                            whileTap={{ scale: 1.2 }}
+                                        >
+                                            {/* Pulse effect when hovered */}
+                                            {isHovered && (
                                                 <motion.div
-                                                    animate={{ rotate: isExpanded ? 180 : 0 }}
+                                                    className={`absolute inset-0 rounded-full ${config.bg} opacity-50`}
+                                                    animate={{ scale: [1, 2, 2.5], opacity: [0.5, 0.3, 0] }}
+                                                    transition={{ duration: 1.5, repeat: Infinity }}
+                                                />
+                                            )}
+                                        </motion.div>
+
+                                        {/* Hover Popup */}
+                                        <AnimatePresence>
+                                            {isHovered && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
                                                     transition={{ duration: 0.2 }}
+                                                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-64 bg-white/30 backdrop-blur-xl rounded-lg shadow-2xl border border-white/40 p-4 z-20 pointer-events-none"
+                                                    style={{ borderTopColor: config.borderColor, borderTopWidth: '3px' }}
                                                 >
-                                                    <ChevronDown size={16} />
+                                                    {/* Popup Arrow */}
+                                                    <div 
+                                                        className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent"
+                                                        style={{ borderTopColor: config.borderColor }}
+                                                    />
+                                                    
+                                                    {/* Popup Content */}
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <div className={`p-1.5 rounded ${config.bg}`}>
+                                                                <Icon size={14} className="text-white" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <span className="text-xs font-medium text-white/80 uppercase tracking-wider">
+                                                                    {post.platform}
+                                                                </span>
+                                                                <h4 className="text-sm font-semibold text-white mt-0.5 line-clamp-1">
+                                                                    {post.title}
+                                                                </h4>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <p className="text-xs text-white/90 line-clamp-2">
+                                                            {post.content}
+                                                        </p>
+                                                        
+                                                        <div className="flex items-center justify-between pt-2 border-t border-white/20">
+                                                            <div className="flex items-center gap-1 text-xs text-white/90">
+                                                                <Calendar size={12} />
+                                                                <span>{post.date}</span>
+                                                            </div>
+                                                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30">
+                                                                {post.type}
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        <div className="flex items-center gap-3 pt-2 border-t border-white/20">
+                                                            <div className="flex items-center gap-1 text-xs text-white/90">
+                                                                <BarChart2 size={12} />
+                                                                <span>{post.stats.views}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-xs text-white/90">
+                                                                <Share2 size={12} />
+                                                                <span>{post.stats.likes}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-xs text-white/90">
+                                                                <MessageCircle size={12} />
+                                                                <span>{post.stats.comments}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </motion.div>
-                                            </div>
-                                        </div>
+                                            )}
+                                        </AnimatePresence>
+                                    </motion.div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            ) : (
+                // Expanded: Full Vertical Timeline Cards
+                <div className="relative">
+                    {/* Vertical Line */}
+                    <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-white/10" />
 
-                                        <p className="text-white/70 mt-3 line-clamp-1 text-sm">
-                                            {post.content}
-                                        </p>
+                    <div className="space-y-8">
+                        {posts.map((post, index) => {
+                            const config = platformConfig[post.platform];
+                            const Icon = config.icon;
+                            const isPostExpanded = expandedId === post.id;
 
-                                        {/* Quick Stats */}
-                                        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/10">
-                                            <div className="flex items-center gap-1.5 text-xs text-white/50">
-                                                <BarChart2 size={14} />
-                                                <span>{post.stats.views}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 text-xs text-white/50">
-                                                <Share2 size={14} />
-                                                <span>{post.stats.likes}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 text-xs text-white/50">
-                                                <MessageCircle size={14} />
-                                                <span>{post.stats.comments}</span>
-                                            </div>
-                                        </div>
-                                    </div>
+                            return (
+                                <motion.div
+                                    key={post.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: index * 0.1 }}
+                                    whileHover={{ scale: 1.02 }}
+                                    className="relative pl-20"
+                                >
+                                    {/* Timeline Dot */}
+                                    <div className={`absolute left-6 -translate-x-1/2 w-4 h-4 rounded-full border-2 border-slate-900 shadow-lg z-10 ${config.bg}`} />
 
-                                    {/* Expanded Details */}
-                                    <AnimatePresence>
-                                        {isExpanded && (
-                                            <motion.div
-                                                initial={{ height: 0, opacity: 0 }}
-                                                animate={{ height: 'auto', opacity: 1 }}
-                                                exit={{ height: 0, opacity: 0 }}
-                                                transition={{ duration: 0.3 }}
-                                                className="bg-white/5 backdrop-blur-sm"
-                                            >
-                                                <div className="p-4 border-t border-white/10">
-                                                    <p className="text-xs text-white/60 mb-3">
-                                                        {post.details}
-                                                    </p>
-
-                                                    <div className="mt-4 flex gap-2">
-                                                        <Link
-                                                            href={`/campaign/${post.campaignId}`}
-                                                            className={`px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r ${config.gradient} hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg`}
-                                                        >
-                                                            View Campaign
-                                                            <ExternalLink size={14} />
-                                                        </Link>
+                                    {/* Card */}
+                                    <motion.div
+                                        className="group relative bg-white/5 backdrop-blur-sm rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-l-4 overflow-hidden cursor-pointer border-white/10 hover:border-white/20"
+                                        style={{ borderLeftColor: config.borderColor }}
+                                        onClick={() => toggleExpand(post.id)}
+                                        whileHover={{ y: -2 }}
+                                    >
+                                        {/* Header */}
+                                        <div className="p-4">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <div className={`p-2 rounded-lg bg-white/10 backdrop-blur-sm ${config.color}`}>
+                                                        <Icon size={20} className="text-white" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs font-medium text-white/50 uppercase tracking-wider">
+                                                            {post.platform} • {post.type}
+                                                        </span>
+                                                        <h3 className="text-base font-semibold text-white mt-0.5 line-clamp-1">
+                                                            {post.title}
+                                                        </h3>
                                                     </div>
                                                 </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
+                                                <div className="flex items-center gap-2 text-sm text-white/60">
+                                                    <Calendar size={14} />
+                                                    <span>{post.date}</span>
+                                                    <motion.div
+                                                        animate={{ rotate: isPostExpanded ? 180 : 0 }}
+                                                        transition={{ duration: 0.2 }}
+                                                    >
+                                                        <ChevronDown size={16} />
+                                                    </motion.div>
+                                                </div>
+                                            </div>
+
+                                            <p className="text-white/70 mt-3 line-clamp-1 text-sm">
+                                                {post.content}
+                                            </p>
+
+                                            {/* Quick Stats */}
+                                            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/10">
+                                                <div className="flex items-center gap-1.5 text-xs text-white/50">
+                                                    <BarChart2 size={14} />
+                                                    <span>{post.stats.views}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-xs text-white/50">
+                                                    <Share2 size={14} />
+                                                    <span>{post.stats.likes}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-xs text-white/50">
+                                                    <MessageCircle size={14} />
+                                                    <span>{post.stats.comments}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Expanded Details */}
+                                        <AnimatePresence>
+                                            {isPostExpanded && (
+                                                <motion.div
+                                                    initial={{ height: 0, opacity: 0 }}
+                                                    animate={{ height: 'auto', opacity: 1 }}
+                                                    exit={{ height: 0, opacity: 0 }}
+                                                    transition={{ duration: 0.3 }}
+                                                    className="bg-white/5 backdrop-blur-sm"
+                                                >
+                                                    <div className="p-4 border-t border-white/10">
+                                                        <p className="text-xs text-white/60 mb-3">
+                                                            {post.details}
+                                                        </p>
+
+                                                        <div className="mt-4 flex gap-2">
+                                                            <Link
+                                                                href={`/campaign/${post.campaignId}`}
+                                                                className={`px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r ${config.gradient} hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg`}
+                                                            >
+                                                                View Campaign
+                                                                <ExternalLink size={14} />
+                                                            </Link>
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </motion.div>
                                 </motion.div>
-                            </motion.div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

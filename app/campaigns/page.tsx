@@ -18,6 +18,8 @@ export default function CampaignsPage() {
     const { user, loading } = useAuth();
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [campaignsLoading, setCampaignsLoading] = useState(true);
+    const [showToneSelector, setShowToneSelector] = useState(false);
+    const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
     const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
     const [addingPlatformsId, setAddingPlatformsId] = useState<string | null>(null);
 
@@ -48,14 +50,19 @@ export default function CampaignsPage() {
         fetchCampaigns();
     }, [user, loading]);
 
-    const handleRegenerate = async (campaignId: string) => {
-        const newTone = prompt('Enter a new tone (or leave empty to keep current):');
-        
-        setRegeneratingId(campaignId);
+    const handleRegenerate = (campaignId: string) => {
+        setSelectedCampaignId(campaignId);
+        setShowToneSelector(true);
+    };
+
+    const handleToneSelect = async (tone: string) => {
+        if (!selectedCampaignId) return;
+
+        setRegeneratingId(selectedCampaignId);
         try {
-            const response = await authenticatedFetch(`/api/campaigns/${campaignId}/regenerate`, {
+            const response = await authenticatedFetch(`/api/campaigns/${selectedCampaignId}/regenerate`, {
                 method: 'POST',
-                body: JSON.stringify({ tone: newTone || undefined }),
+                body: JSON.stringify({ tone: tone || undefined }),
             });
 
             if (!response.ok) {
@@ -63,11 +70,13 @@ export default function CampaignsPage() {
             }
 
             toast.success('Regenerating campaign...');
-            router.push(`/campaign/${campaignId}`);
+            router.push(`/campaign/${selectedCampaignId}`);
         } catch (error: any) {
             toast.error(error.message || 'Failed to regenerate campaign');
         } finally {
             setRegeneratingId(null);
+            setShowToneSelector(false);
+            setSelectedCampaignId(null);
         }
     };
 
@@ -234,6 +243,16 @@ export default function CampaignsPage() {
                     )}
                 </main>
             </div>
+
+            <ToneSelectorPopup
+                isOpen={showToneSelector}
+                onClose={() => {
+                    setShowToneSelector(false);
+                    setSelectedCampaignId(null);
+                }}
+                onSelect={handleToneSelect}
+                currentTone={selectedCampaignId ? campaigns.find(c => c._id === selectedCampaignId)?.tone : undefined}
+            />
         </div>
     );
 }

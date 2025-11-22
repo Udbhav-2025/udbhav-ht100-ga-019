@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Download, Copy, RefreshCw, Sparkles } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import type { Campaign } from '@/lib/types/campaign.types';
-import Image from 'next/image';
 
 interface CampaignResultsProps {
   campaign: Campaign;
@@ -188,40 +187,72 @@ export default function CampaignResults({ campaign, onRegenerate }: CampaignResu
             <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
               <h3 className="text-xl font-bold text-white mb-4">Email Templates</h3>
               <div className="space-y-4">
-                {campaign.generatedContent.linkedin.emailTemplates.map((email, index) => (
-                  <div key={index} className="bg-white/5 rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="text-sm text-gray-400">Template {index + 1}</div>
-                      <button
-                        onClick={() => copyToClipboard(email)}
-                        className="p-2 hover:bg-white/10 rounded-lg transition"
-                      >
-                        <Copy className="w-4 h-4 text-gray-400" />
-                      </button>
+                {campaign.generatedContent.linkedin.emailTemplates.map((email, index) => {
+                  // Handle both string and object formats
+                  const isObject = typeof email === 'object' && email !== null;
+                  const emailSubject = isObject && 'subject' in email ? email.subject : null;
+                  const emailBody = isObject && 'body' in email ? email.body : (typeof email === 'string' ? email : '');
+                  const emailText = typeof email === 'string' 
+                    ? email 
+                    : (isObject && emailSubject && emailBody ? `${emailSubject}\n\n${emailBody}` : (emailBody || JSON.stringify(email)));
+                  
+                  return (
+                    <div key={index} className="bg-white/5 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="text-sm text-gray-400">Template {index + 1}</div>
+                        <button
+                          onClick={() => copyToClipboard(emailText)}
+                          className="p-2 hover:bg-white/10 rounded-lg transition"
+                        >
+                          <Copy className="w-4 h-4 text-gray-400" />
+                        </button>
+                      </div>
+                      {emailSubject && (
+                        <div className="mb-2">
+                          <div className="text-sm text-gray-400 mb-1">Subject</div>
+                          <div className="text-lg font-semibold text-white">{emailSubject}</div>
+                        </div>
+                      )}
+                      <div className="text-gray-200 whitespace-pre-wrap">{emailBody}</div>
                     </div>
-                    <div className="text-gray-200 whitespace-pre-wrap">{email}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
             <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
               <h3 className="text-xl font-bold text-white mb-4">Post Drafts</h3>
               <div className="space-y-4">
-                {campaign.generatedContent.linkedin.postDrafts.map((post, index) => (
-                  <div key={index} className="bg-white/5 rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="text-sm text-gray-400">Post {index + 1}</div>
-                      <button
-                        onClick={() => copyToClipboard(post)}
-                        className="p-2 hover:bg-white/10 rounded-lg transition"
-                      >
-                        <Copy className="w-4 h-4 text-gray-400" />
-                      </button>
+                {campaign.generatedContent.linkedin.postDrafts.map((post, index) => {
+                  // Handle both string and object formats
+                  const isObject = typeof post === 'object' && post !== null;
+                  const postSubject = isObject && 'subject' in post ? post.subject : null;
+                  const postBody = isObject && 'body' in post ? post.body : (typeof post === 'string' ? post : '');
+                  const postText = typeof post === 'string' 
+                    ? post 
+                    : (isObject && postSubject && postBody ? `${postSubject}\n\n${postBody}` : (postBody || JSON.stringify(post)));
+                  
+                  return (
+                    <div key={index} className="bg-white/5 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="text-sm text-gray-400">Post {index + 1}</div>
+                        <button
+                          onClick={() => copyToClipboard(postText)}
+                          className="p-2 hover:bg-white/10 rounded-lg transition"
+                        >
+                          <Copy className="w-4 h-4 text-gray-400" />
+                        </button>
+                      </div>
+                      {postSubject && (
+                        <div className="mb-2">
+                          <div className="text-sm text-gray-400 mb-1">Subject</div>
+                          <div className="text-lg font-semibold text-white">{postSubject}</div>
+                        </div>
+                      )}
+                      <div className="text-gray-200 whitespace-pre-wrap">{postBody}</div>
                     </div>
-                    <div className="text-gray-200 whitespace-pre-wrap">{post}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -263,12 +294,17 @@ export default function CampaignResults({ campaign, onRegenerate }: CampaignResu
                 .map((image, index) => (
                   <div key={index} className="space-y-3">
                     <div className="relative bg-white/5 rounded-lg overflow-hidden aspect-square">
-                      <Image
-                        src={image.url}
+                      <img
+                        src={image.url || `/placeholders/${image.platform}-placeholder.svg`}
                         alt={`${image.platform} ad`}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className="object-cover"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.error('Image load error:', image.url);
+                          const target = e.target as HTMLImageElement;
+                          if (target && !target.src.includes('placeholder')) {
+                            target.src = `/placeholders/${image.platform}-placeholder.svg`;
+                          }
+                        }}
                       />
                     </div>
                     <button

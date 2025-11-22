@@ -56,7 +56,7 @@ export class ImageService {
       // Return placeholder if API key not configured
       return {
         platform,
-        url: `/placeholders/${platform}-placeholder.png`,
+        url: `/placeholders/${platform}-placeholder.svg`,
         width: dimensions.width,
         height: dimensions.height,
       };
@@ -140,7 +140,7 @@ export class ImageService {
       // Return placeholder on error
       return {
         platform,
-        url: `/placeholders/${platform}-placeholder.png`,
+        url: `/placeholders/${platform}-placeholder.svg`,
         width: dimensions.width,
         height: dimensions.height,
       };

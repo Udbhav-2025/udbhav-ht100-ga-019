@@ -3,11 +3,14 @@
   "version": "1.0.0",
   "description": "AI-powered autonomous marketing campaign creator",
   "scripts": {
+    "predev": "node scripts/start-mongodb.js || echo 'MongoDB auto-start skipped - continuing anyway'",
     "dev": "next dev -p 3000",
+    "prestart": "node scripts/start-mongodb.js || echo 'MongoDB auto-start skipped - continuing anyway'",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "check": "node scripts/check-env.js"
+    "check": "node scripts/check-env.js",
+    "mongodb:start": "node scripts/start-mongodb.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.17.0",

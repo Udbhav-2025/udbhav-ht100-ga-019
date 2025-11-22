@@ -9,6 +9,7 @@ import Navbar from '@/components/Navbar';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import StatusProgress from '@/components/StatusProgress';
 import CampaignResults from '@/components/CampaignResults';
+import ToneSelectorPopup from '@/components/ToneSelectorPopup';
 import type { Campaign } from '@/lib/types/campaign.types';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -27,6 +28,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [showToneSelector, setShowToneSelector] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -52,6 +54,10 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
         console.error('SWR fetch error:', error);
         if (error.message?.includes('403')) {
           toast.error('You do not have access to this campaign');
+          router.push('/dashboard');
+        } else if (error.message?.includes('404') || error.message?.includes('Campaign not found')) {
+          toast.error('Campaign not found');
+          router.push('/dashboard');
         }
       },
     }
@@ -65,9 +71,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
     }
   }, [error]);
 
-  const handleRegenerate = async () => {
-    const newTone = prompt('Enter a new tone (or leave empty to keep current):');
-    
+  const handleRegenerate = async (newTone?: string) => {
     setIsRegenerating(true);
     
     try {
@@ -124,12 +128,12 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
             <div className="text-center max-w-2xl">
               <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Error Loading Campaign</h1>
               <p className="text-gray-300 mb-8 text-lg">Unable to load campaign details</p>
-              <Link
+          <Link
                 href="/dashboard"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-lg transition-all shadow-lg shadow-blue-500/30"
-              >
+          >
                 Back to Dashboard
-              </Link>
+          </Link>
             </div>
           </div>
         </div>
@@ -160,14 +164,14 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
         <Navbar />
         
         <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-          <div className="max-w-6xl mx-auto">
-            {/* Header */}
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
             <div className="mb-8 sm:mb-12">
               <div className="flex items-start justify-between">
                 <div>
                   <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">
-                    {isProcessing ? 'Creating Your Campaign...' : 'Campaign Ready!'}
-                  </h1>
+              {isProcessing ? 'Creating Your Campaign...' : 'Campaign Ready!'}
+            </h1>
                   <p className="text-lg text-gray-300">
                     {isProcessing ? 'Our AI agents are working on your campaign' : 'Your campaign is ready to use'}
                   </p>
@@ -183,7 +187,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
                   </button>
                 )}
               </div>
-            </div>
+          </div>
 
           {/* Content */}
           {isProcessing && (
@@ -194,8 +198,15 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
           )}
 
           {campaign.status === 'completed' && (
-            <CampaignResults campaign={campaign} onRegenerate={handleRegenerate} />
+            <CampaignResults campaign={campaign} onRegenerate={() => setShowToneSelector(true)} />
           )}
+
+          <ToneSelectorPopup
+            isOpen={showToneSelector}
+            onClose={() => setShowToneSelector(false)}
+            onSelect={handleRegenerate}
+            currentTone={campaign.tone}
+          />
 
           {campaign.status === 'failed' && (
             <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-6 text-center">
@@ -210,7 +221,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
               </Link>
             </div>
           )}
-          </div>
+        </div>
         </main>
       </div>
     </div>

@@ -8,6 +8,7 @@ import CampaignCard from '@/components/CampaignCard';
 import PopularStrategiesCard from '@/components/PopularStrategiesCard';
 import TrendingStrategiesCard from '@/components/TrendingStrategiesCard';
 import SocialTrendsCard from '@/components/SocialTrendsCard';
+import GlobalViewsCounter from '@/components/GlobalViewsCounter';
 import Navbar from '@/components/Navbar';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -201,11 +202,21 @@ export default function DashboardPage() {
                         </div>
                     </motion.div>
 
-                    {/* Campaigns Grid Section */}
+                    {/* Global Views Counter */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.6 }}
+                        className="mb-8 sm:mb-12"
+                    >
+                        <GlobalViewsCounter />
+                    </motion.div>
+
+                    {/* Campaigns Grid Section */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.7 }}
                         className="mb-8 sm:mb-12"
                     >
                         <div className="flex items-center justify-between mb-6">
@@ -274,7 +285,7 @@ export default function DashboardPage() {
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.7 }}
+                            transition={{ delay: 0.8 }}
                         >
                             <PopularStrategiesCard 
                                 strategies={popularStrategies} 
@@ -296,7 +307,7 @@ export default function DashboardPage() {
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.8 }}
+                            transition={{ delay: 0.9 }}
                         >
                             <TrendingStrategiesCard 
                                 strategies={trendingStrategies} 
@@ -320,7 +331,7 @@ export default function DashboardPage() {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.9 }}
+                        transition={{ delay: 1.0 }}
                         className="mb-8 sm:mb-12"
                     >
                         <SocialTrendsCard 
@@ -344,7 +355,7 @@ export default function DashboardPage() {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 1.0 }}
+                        transition={{ delay: 1.1 }}
                         className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-6 sm:p-8 lg:p-10 shadow-xl"
                     >
                         <Timeline />

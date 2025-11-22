@@ -3,6 +3,9 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  signInWithPopup,
+  GoogleAuthProvider,
+  sendPasswordResetEmail,
   User,
   UserCredential,
 } from 'firebase/auth';
@@ -70,6 +73,53 @@ export class AuthService {
       console.error('Error getting ID token:', error);
       return null;
     }
+  }
+
+  /**
+   * Sign in with Google using popup
+   */
+  async signInWithGoogle(): Promise<UserCredential> {
+    if (!auth) {
+      throw new Error('Firebase auth not initialized');
+    }
+    
+    const provider = new GoogleAuthProvider();
+    
+    // Configure the provider
+    provider.setCustomParameters({
+      prompt: 'select_account',
+    });
+    
+    // Add additional scopes if needed
+    provider.addScope('profile');
+    provider.addScope('email');
+    
+    try {
+      // Try popup first (better UX)
+      return await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      // If popup is blocked or fails, provide helpful error message
+      if (error.code === 'auth/popup-blocked') {
+        throw new Error('Popup was blocked by browser. Please allow popups and try again.');
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        throw new Error('Sign-in popup was closed. Please try again.');
+      } else if (error.code === 'auth/unauthorized-domain') {
+        const domain = typeof window !== 'undefined' ? window.location.hostname : 'unknown';
+        throw new Error(`Domain "${domain}" is not authorized. Please add it to Firebase Authorized Domains.`);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Send password reset email
+   */
+  async sendPasswordReset(email: string): Promise<void> {
+    if (!auth) {
+      throw new Error('Firebase auth not initialized');
+    }
+    return sendPasswordResetEmail(auth, email);
   }
 
   /**

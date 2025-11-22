@@ -100,7 +100,7 @@ export default function Navbar() {
                                 </div>
                                 <div className="hidden lg:block">
                                     <p className="text-sm font-medium text-white">
-                                        {user.email?.split('@')[0] || 'User'}
+                                        {user.displayName || user.email?.split('@')[0] || 'User'}
                                     </p>
                                     <p className="text-xs text-white/60">Active</p>
                                 </div>

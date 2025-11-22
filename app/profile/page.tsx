@@ -10,6 +10,10 @@ import { authenticatedFetch } from '@/lib/utils/api';
 import { Loader2, User, Settings, Save, ArrowLeft, Mail, Key } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
+import Input from '@/components/ui/Input';
+import Button from '@/components/ui/Button';
+import Textarea from '@/components/ui/Textarea';
+import Label from '@/components/ui/Label';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -46,7 +50,7 @@ export default function ProfilePage() {
         try {
             // Update Firebase user profile
             if (user) {
-                const { updateProfile } = await import('firebase/auth');
+                const { updateProfile, reload } = await import('firebase/auth');
                 const { auth } = await import('@/lib/firebase/config');
                 
                 if (auth && auth.currentUser) {
@@ -54,11 +58,10 @@ export default function ProfilePage() {
                         displayName: formData.displayName || null,
                     });
                     
-                    // The AuthContext will automatically update when Firebase auth state changes
-                    // Force a small delay to ensure the update propagates
-                    setTimeout(() => {
-                        toast.success('Display name updated successfully');
-                    }, 100);
+                    // Reload the user to get the updated profile
+                    await reload(auth.currentUser);
+                    
+                    toast.success('Display name updated successfully');
                 } else {
                     throw new Error('User not authenticated');
                 }
@@ -135,33 +138,23 @@ export default function ProfilePage() {
                                 </div>
 
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-white/90 mb-2">
-                                            Display Name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={formData.displayName}
-                                            onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition"
-                                            placeholder="Your display name"
-                                        />
-                                    </div>
+                                    <Input
+                                        type="text"
+                                        value={formData.displayName}
+                                        onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                                        placeholder="Your display name"
+                                        label="Display Name"
+                                    />
 
                                     <div>
-                                        <label className="block text-sm font-medium text-white/90 mb-2">
-                                            Email Address
-                                        </label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                            <input
-                                                type="email"
-                                                value={formData.email}
-                                                disabled
-                                                className="w-full px-4 py-3 pl-11 bg-white/5 border border-white/10 rounded-lg text-white/60 placeholder-gray-400 focus:outline-none cursor-not-allowed"
-                                                placeholder="your@email.com"
-                                            />
-                                        </div>
+                                        <Input
+                                            type="email"
+                                            value={formData.email}
+                                            disabled
+                                            placeholder="your@email.com"
+                                            label="Email Address"
+                                            leftIcon={<Mail className="w-5 h-5" />}
+                                        />
                                         <p className="text-xs text-gray-400 mt-1">Email cannot be changed</p>
                                     </div>
                                 </div>
@@ -190,46 +183,60 @@ export default function ProfilePage() {
 
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-white/90 mb-2">
-                                            Research Agent Prompt
-                                        </label>
-                                        <textarea
+                                        <Textarea
                                             value={formData.researchPrompt}
                                             onChange={(e) => setFormData({ ...formData, researchPrompt: e.target.value })}
                                             rows={4}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition font-mono text-sm"
+                                            label="Research Agent Prompt"
+                                            className="font-mono text-sm"
                                             placeholder="Default: Analyze the brand website and extract key information..."
                                         />
                                         <p className="text-xs text-gray-400 mt-1">Used by the Research Agent to analyze brands</p>
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-white/90 mb-2">
-                                            Content Generation Prompt
-                                        </label>
-                                        <textarea
+                                        <Textarea
                                             value={formData.contentPrompt}
                                             onChange={(e) => setFormData({ ...formData, contentPrompt: e.target.value })}
                                             rows={4}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition font-mono text-sm"
+                                            label="Content Generation Prompt"
                                             placeholder="Default: Generate platform-optimized content based on brand research..."
+                                            className="font-mono text-sm focus:ring-purple-500/50 focus:border-purple-500/50"
                                         />
                                         <p className="text-xs text-gray-400 mt-1">Used by the Content Creator to generate posts</p>
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-white/90 mb-2">
-                                            Critique Agent Prompt
-                                        </label>
-                                        <textarea
+                                        <Textarea
                                             value={formData.critiquePrompt}
                                             onChange={(e) => setFormData({ ...formData, critiquePrompt: e.target.value })}
                                             rows={4}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 transition font-mono text-sm"
+                                            label="Critique Agent Prompt"
                                             placeholder="Default: Review and critique the generated content for quality..."
+                                            className="font-mono text-sm focus:ring-pink-500/50 focus:border-pink-500/50"
                                         />
                                         <p className="text-xs text-gray-400 mt-1">Used by the Critique Agent to review content</p>
                                     </div>
+
+                                    <Textarea
+                                        value={formData.contentPrompt}
+                                        onChange={(e) => setFormData({ ...formData, contentPrompt: e.target.value })}
+                                        rows={4}
+                                        label="Content Generation Prompt"
+                                        placeholder="Default: Generate platform-optimized content based on brand research..."
+                                        className="font-mono text-sm focus:ring-purple-500/50 focus:border-purple-500/50"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">Used by the Content Creator to generate posts</p>
+
+                                    <Textarea
+                                        value={formData.critiquePrompt}
+                                        onChange={(e) => setFormData({ ...formData, critiquePrompt: e.target.value })}
+                                        rows={4}
+                                        label="Critique Agent Prompt"
+                                        placeholder="Default: Review and critique the generated content for quality..."
+                                        className="font-mono text-sm focus:ring-pink-500/50 focus:border-pink-500/50"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">Used by the Critique Agent to review content</p>
                                 </div>
                             </motion.div>
 
@@ -240,23 +247,14 @@ export default function ProfilePage() {
                                 transition={{ delay: 0.3 }}
                                 className="flex justify-end"
                             >
-                                <button
+                                <Button
                                     onClick={handleSave}
                                     disabled={saving}
-                                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-lg transition-all shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    isLoading={saving}
+                                    leftIcon={!saving ? <Save className="w-5 h-5" /> : undefined}
                                 >
-                                    {saving ? (
-                                        <>
-                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                            Saving...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Save className="w-5 h-5" />
-                                            Save Settings
-                                        </>
-                                    )}
-                                </button>
+                                    {saving ? 'Saving...' : 'Save Settings'}
+                                </Button>
                             </motion.div>
                         </div>
                     </div>

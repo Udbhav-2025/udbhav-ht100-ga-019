@@ -24,9 +24,30 @@ export async function POST(
     const body = await request.json();
     const { tone } = body;
 
-    const campaign = await CampaignModel.findById(params.id);
-
-    if (!campaign) {
+    const campaignQuery = CampaignModel.findById(params.id);
+    
+    // Handle both Mongoose and memoryDB responses
+    let campaignData: any = null;
+    
+    // Check if it's a memoryDB query (has lean method)
+    if (campaignQuery && typeof (campaignQuery as any).lean === 'function') {
+      // MemoryDB returns an object with lean() method
+      campaignData = await (campaignQuery as any).lean();
+    } else if (campaignQuery && typeof (campaignQuery as any).then === 'function') {
+      // Mongoose returns a promise
+      const campaign = await campaignQuery;
+      if (campaign) {
+        campaignData = campaign && typeof (campaign as any).toObject === 'function' 
+          ? (campaign as any).toObject() 
+          : campaign;
+      }
+    } else if (campaignQuery) {
+      // Direct object (fallback)
+      campaignData = campaignQuery;
+    }
+    
+    if (!campaignData) {
+      console.log('Campaign not found:', params.id);
       return NextResponse.json(
         { error: 'Campaign not found' },
         { status: 404 }
@@ -34,15 +55,27 @@ export async function POST(
     }
 
     // Verify ownership
-    const campaignData = campaign.toObject ? campaign.toObject() : campaign;
-    if ((campaignData as any).userId !== userId) {
+    const campaignUserId = String(campaignData.userId || '');
+    const requestUserId = String(userId || '');
+    
+    // Debug logging
+    console.log('Regenerate ownership check:', {
+      campaignId: params.id,
+      campaignUserId,
+      requestUserId,
+      match: campaignUserId === requestUserId,
+      hasUserId: !!campaignData.userId,
+    });
+    
+    if (campaignUserId !== requestUserId) {
+      console.log('Regenerate ownership check failed - returning 403');
       return NextResponse.json(
         { error: 'Unauthorized. You do not have access to this campaign.' },
         { status: 403 }
       );
     }
 
-    if (!campaign.brandResearch) {
+    if (!campaignData.brandResearch) {
       return NextResponse.json(
         { error: 'Campaign must be completed before regeneration' },
         { status: 400 }
@@ -70,8 +103,28 @@ async function regenerateCampaignAsync(campaignId: string, newTone?: string) {
   try {
     await connectDB();
     
-    const campaign = await CampaignModel.findById(campaignId);
-    if (!campaign) return;
+    const campaignQuery = CampaignModel.findById(campaignId);
+    
+    // Handle both Mongoose and memoryDB responses
+    let campaignData: any = null;
+    
+    if (campaignQuery && typeof (campaignQuery as any).lean === 'function') {
+      campaignData = await (campaignQuery as any).lean();
+    } else if (campaignQuery && typeof (campaignQuery as any).then === 'function') {
+      const campaign = await campaignQuery;
+      if (campaign) {
+        campaignData = campaign && typeof (campaign as any).toObject === 'function' 
+          ? (campaign as any).toObject() 
+          : campaign;
+      }
+    } else if (campaignQuery) {
+      campaignData = campaignQuery;
+    }
+    
+    if (!campaignData) {
+      console.error('Campaign not found for regeneration:', campaignId);
+      return;
+    }
 
     const updateStatus = async (status: Campaign['status']) => {
       await CampaignModel.findByIdAndUpdate(campaignId, { status });
@@ -80,7 +133,7 @@ async function regenerateCampaignAsync(campaignId: string, newTone?: string) {
     await updateStatus('generating-content');
 
     const result = await agentService.regenerateCampaign(
-      campaign.toObject(),
+      campaignData,
       newTone,
       updateStatus
     );
