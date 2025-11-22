@@ -232,25 +232,29 @@ export class TextOverlayService {
 
   /**
    * Extract headline text for a platform from generated content
+   * @param platform - The platform to extract headline for
+   * @param generatedContent - The generated content object
+   * @param postIndex - The index of the post to extract headline for (default: 0)
    */
   extractHeadline(
     platform: 'instagram' | 'linkedin' | 'twitter',
-    generatedContent: any
+    generatedContent: any,
+    postIndex: number = 0
   ): string | null {
     try {
-      if (platform === 'instagram' && generatedContent?.instagram?.postIdeas?.[0]?.slogan) {
-        return generatedContent.instagram.postIdeas[0].slogan;
+      if (platform === 'instagram' && generatedContent?.instagram?.postIdeas?.[postIndex]?.slogan) {
+        return generatedContent.instagram.postIdeas[postIndex].slogan;
       }
       
-      if (platform === 'linkedin' && generatedContent?.linkedin?.postDrafts?.[0]) {
+      if (platform === 'linkedin' && generatedContent?.linkedin?.postDrafts?.[postIndex]) {
         // Extract first sentence or first 50 chars from LinkedIn post
-        const post = generatedContent.linkedin.postDrafts[0];
+        const post = generatedContent.linkedin.postDrafts[postIndex];
         const firstSentence = post.split(/[.!?]/)[0];
         return firstSentence.length > 60 ? firstSentence.substring(0, 57) + '...' : firstSentence;
       }
       
-      if (platform === 'twitter' && generatedContent?.twitter?.adLines?.[0]) {
-        return generatedContent.twitter.adLines[0];
+      if (platform === 'twitter' && generatedContent?.twitter?.adLines?.[postIndex]) {
+        return generatedContent.twitter.adLines[postIndex];
       }
       
       return null;

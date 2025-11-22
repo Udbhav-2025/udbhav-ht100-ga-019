@@ -48,6 +48,7 @@ const GeneratedImageSchema = new Schema({
   url: { type: String, required: true },
   width: { type: Number, required: true },
   height: { type: Number, required: true },
+  postIndex: { type: Number, required: false }, // Index of the post this image corresponds to
 }, { _id: false });
 
 const CritiqueSummarySchema = new Schema({

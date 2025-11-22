@@ -37,6 +37,7 @@ export interface GeneratedImage {
   url: string;
   width: number;
   height: number;
+  postIndex?: number; // Index of the post this image corresponds to
 }
 
 export interface CritiqueSummary {

@@ -22,20 +22,27 @@ export class ImageService {
     platforms: Platform[],
     campaignId: string,
     generatedContent?: GeneratedContent
-  ): Promise<{ platform: Platform; url: string; width: number; height: number }[]> {
-    const images: { platform: Platform; url: string; width: number; height: number }[] = [];
+  ): Promise<{ platform: Platform; url: string; width: number; height: number; postIndex?: number }[]> {
+    const images: { platform: Platform; url: string; width: number; height: number; postIndex?: number }[] = [];
 
     for (const platform of platforms) {
       try {
-        const image = await this.generateImageForPlatform(
-          brandResearch,
-          platform,
-          campaignId,
-          generatedContent
-        );
-        images.push(image);
+        // Determine how many images to generate based on the number of posts
+        const postCount = this.getPostCountForPlatform(platform, generatedContent);
+        
+        // Generate one image per post
+        for (let postIndex = 0; postIndex < postCount; postIndex++) {
+          const image = await this.generateImageForPlatform(
+            brandResearch,
+            platform,
+            campaignId,
+            generatedContent,
+            postIndex
+          );
+          images.push({ ...image, postIndex });
+        }
       } catch (error: any) {
-        console.error(`Failed to generate image for ${platform}:`, error.message);
+        console.error(`Failed to generate images for ${platform}:`, error.message);
         // Continue with other platforms even if one fails
       }
     }
@@ -43,14 +50,42 @@ export class ImageService {
     return images;
   }
 
+  /**
+   * Get the number of posts for a platform to determine how many images to generate
+   */
+  private getPostCountForPlatform(platform: Platform, generatedContent?: GeneratedContent): number {
+    if (!generatedContent) {
+      // Default to 1 image per platform if no content available
+      return 1;
+    }
+
+    switch (platform) {
+      case 'instagram':
+        // Generate one image per post idea
+        return generatedContent.instagram?.postIdeas?.length || 1;
+      
+      case 'linkedin':
+        // Generate one image per post draft (emails don't typically need images)
+        return generatedContent.linkedin?.postDrafts?.length || 1;
+      
+      case 'twitter':
+        // Generate one image per ad line
+        return generatedContent.twitter?.adLines?.length || 1;
+      
+      default:
+        return 1;
+    }
+  }
+
   private async generateImageForPlatform(
     brandResearch: BrandResearch,
     platform: Platform,
     campaignId: string,
-    generatedContent?: GeneratedContent
+    generatedContent?: GeneratedContent,
+    postIndex: number = 0
   ): Promise<{ platform: Platform; url: string; width: number; height: number }> {
     const dimensions = this.getPlatformDimensions(platform);
-    const prompt = this.buildImagePrompt(brandResearch, platform);
+    const prompt = this.buildImagePrompt(brandResearch, platform, generatedContent, postIndex);
 
     if (!STABILITY_API_KEY) {
       // Return placeholder if API key not configured
@@ -92,7 +127,7 @@ export class ImageService {
       );
 
       const image = response.data.artifacts[0];
-      const fileName = `${campaignId}-${platform}-${Date.now()}.png`;
+      const fileName = `${campaignId}-${platform}-${postIndex}-${Date.now()}.png`;
       const filePath = path.join(this.outputDir, fileName);
 
       // Save base64 image to file
@@ -102,7 +137,7 @@ export class ImageService {
       // Add text overlay if headline is available
       let finalBuffer: Buffer = buffer;
       if (generatedContent) {
-        const headline = textOverlayService.extractHeadline(platform, generatedContent);
+        const headline = textOverlayService.extractHeadline(platform, generatedContent, postIndex);
         if (headline) {
           try {
             const overlayBuffer = await textOverlayService.addTextOverlay(filePath, {
@@ -164,7 +199,12 @@ export class ImageService {
     return Math.max(32, Math.min(80, platformFontSizes[platform])); // Clamp between 32-80px
   }
 
-  private buildImagePrompt(brandResearch: BrandResearch, platform: Platform): string {
+  private buildImagePrompt(
+    brandResearch: BrandResearch,
+    platform: Platform,
+    generatedContent?: GeneratedContent,
+    postIndex: number = 0
+  ): string {
     const basePrompt = `Professional ${platform} ad banner for ${brandResearch.brandName}. `;
     
     const styleMap = {
@@ -173,12 +213,37 @@ export class ImageService {
       twitter: 'bold, minimalist, attention-grabbing design',
     };
 
+    // Try to incorporate post-specific content into the prompt for variety
+    let postContext = '';
+    if (generatedContent) {
+      switch (platform) {
+        case 'instagram':
+          if (generatedContent.instagram?.postIdeas?.[postIndex]) {
+            const post = generatedContent.instagram.postIdeas[postIndex];
+            postContext = `Inspired by: ${post.slogan}. `;
+          }
+          break;
+        case 'linkedin':
+          if (generatedContent.linkedin?.postDrafts?.[postIndex]) {
+            const post = generatedContent.linkedin.postDrafts[postIndex];
+            postContext = `Inspired by post theme: ${post.substring(0, 100)}. `;
+          }
+          break;
+        case 'twitter':
+          if (generatedContent.twitter?.adLines?.[postIndex]) {
+            const adLine = generatedContent.twitter.adLines[postIndex];
+            postContext = `Inspired by: ${adLine}. `;
+          }
+          break;
+      }
+    }
+
     const description = `${brandResearch.description.substring(0, 150)}. `;
     const style = styleMap[platform];
     const context = `${brandResearch.positioning}. High quality, professional marketing material, `;
     const technical = 'sharp focus, detailed, commercial photography style, no text or letters';
 
-    return `${basePrompt}${description}${style}, ${context}${technical}`;
+    return `${basePrompt}${postContext}${description}${style}, ${context}${technical}`;
   }
 
   private getPlatformDimensions(platform: Platform): { width: number; height: number } {

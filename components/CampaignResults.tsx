@@ -29,6 +29,51 @@ export default function CampaignResults({ campaign, onRegenerate }: CampaignResu
     toast.success('Image downloaded!');
   };
 
+  // Helper function to get post information for an image
+  const getPostInfoForImage = (
+    platform: string,
+    postIndex: number | undefined,
+    generatedContent?: Campaign['generatedContent']
+  ): { title: string; subtitle?: string } | null => {
+    if (postIndex === undefined || !generatedContent) return null;
+
+    try {
+      switch (platform) {
+        case 'instagram':
+          const instagramPost = generatedContent.instagram?.postIdeas?.[postIndex];
+          if (instagramPost) {
+            return {
+              title: instagramPost.slogan,
+              subtitle: instagramPost.caption?.substring(0, 100) + '...',
+            };
+          }
+          break;
+        case 'linkedin':
+          const linkedinPost = generatedContent.linkedin?.postDrafts?.[postIndex];
+          if (linkedinPost) {
+            const postText = typeof linkedinPost === 'string' ? linkedinPost : linkedinPost.body || '';
+            return {
+              title: `Post ${postIndex + 1}`,
+              subtitle: postText.substring(0, 100) + '...',
+            };
+          }
+          break;
+        case 'twitter':
+          const twitterAdLine = generatedContent.twitter?.adLines?.[postIndex];
+          if (twitterAdLine) {
+            return {
+              title: twitterAdLine,
+            };
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('Error getting post info:', error);
+    }
+
+    return null;
+  };
+
   return (
     <div className="w-full max-w-6xl mx-auto space-y-8">
       {/* Header */}
@@ -291,31 +336,58 @@ export default function CampaignResults({ campaign, onRegenerate }: CampaignResu
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {campaign.generatedImages
                 .filter((img) => img.platform === activeTab)
-                .map((image, index) => (
-                  <div key={index} className="space-y-3">
-                    <div className="relative bg-white/5 rounded-lg overflow-hidden aspect-square">
-                      <img
-                        src={image.url || `/placeholders/${image.platform}-placeholder.svg`}
-                        alt={`${image.platform} ad`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          console.error('Image load error:', image.url);
-                          const target = e.target as HTMLImageElement;
-                          if (target && !target.src.includes('placeholder')) {
-                            target.src = `/placeholders/${image.platform}-placeholder.svg`;
-                          }
+                .map((image, index) => {
+                  // Get post information for this image
+                  const postInfo = getPostInfoForImage(activeTab, image.postIndex, campaign.generatedContent);
+                  
+                  return (
+                    <div key={index} className="space-y-3">
+                      <div className="relative bg-white/5 rounded-lg overflow-hidden aspect-square">
+                        <img
+                          src={image.url || `/placeholders/${image.platform}-placeholder.svg`}
+                          alt={`${image.platform} ad ${(image.postIndex ?? 0) + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.error('Image load error:', image.url);
+                            const target = e.target as HTMLImageElement;
+                            if (target && !target.src.includes('placeholder')) {
+                              target.src = `/placeholders/${image.platform}-placeholder.svg`;
+                            }
+                          }}
+                        />
+                        {postInfo && (
+                          <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                            Post {(image.postIndex ?? 0) + 1}
+                          </div>
+                        )}
+                      </div>
+                      {postInfo && (
+                        <div className="text-sm text-gray-300 bg-white/5 rounded p-2">
+                          <p className="font-medium text-white truncate">{postInfo.title}</p>
+                          {postInfo.subtitle && (
+                            <p className="text-xs text-gray-400 mt-1 line-clamp-2">{postInfo.subtitle}</p>
+                          )}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => {
+                          const postNum = (image.postIndex ?? 0) + 1;
+                          const link = document.createElement('a');
+                          link.href = image.url;
+                          link.download = `${campaign.brandResearch?.brandName}-${image.platform}-post${postNum}.png`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          toast.success('Image downloaded!');
                         }}
-                      />
+                        className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 transition"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download
+                      </button>
                     </div>
-                    <button
-                      onClick={() => downloadImage(image.url, image.platform)}
-                      className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 transition"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
         )}
