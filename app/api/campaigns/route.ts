@@ -2,10 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db/mongodb';
 import { CampaignModel } from '@/lib/models/Campaign.model';
 import { agentService } from '@/lib/services/agent.service';
+import { getUserIdFromRequest } from '@/lib/middleware/auth.middleware';
 import type { Campaign } from '@/lib/types/campaign.types';
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify authentication
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please sign in.' },
+        { status: 401 }
+      );
+    }
+
     await connectDB();
 
     const body = await request.json();
@@ -37,21 +47,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create campaign
+    // Create campaign with userId
     const campaign = await CampaignModel.create({
       websiteUrl,
       platforms,
       tone,
       goal,
+      userId: String(userId), // Ensure userId is a string
       status: 'pending',
     });
 
+    const campaignId = String(campaign._id || campaign.id);
+    
+    // Verify the campaign was created with the correct userId
+    // Note: For memoryDB, we need to call .lean() to get the actual data
+    const createdCampaignQuery = CampaignModel.findById(campaignId);
+    let campaignData: any = null;
+    
+    if (createdCampaignQuery && typeof (createdCampaignQuery as any).lean === 'function') {
+      // MemoryDB returns an object with lean() method
+      campaignData = await (createdCampaignQuery as any).lean();
+    } else if (createdCampaignQuery && typeof (createdCampaignQuery as any).then === 'function') {
+      // Mongoose returns a promise
+      const campaignDoc = await createdCampaignQuery;
+      if (campaignDoc) {
+        campaignData = campaignDoc && typeof (campaignDoc as any).toObject === 'function' 
+          ? (campaignDoc as any).toObject() 
+          : campaignDoc;
+      }
+    }
+    
+    if (campaignData) {
+      console.log('Campaign created:', {
+        campaignId,
+        savedUserId: String(campaignData.userId || ''),
+        requestUserId: String(userId),
+        match: String(campaignData.userId || '') === String(userId),
+      });
+    }
+
     // Start async processing (don't wait for it)
-    processCampaignAsync(campaign._id.toString());
+    processCampaignAsync(campaignId, String(userId));
 
     return NextResponse.json({
       success: true,
-      campaignId: campaign._id,
+      campaignId: campaignId,
       message: 'Campaign created successfully',
     }, { status: 201 });
 
@@ -66,16 +106,44 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    await connectDB();
-    console.log('GET /api/campaigns: Connected to DB');
+    // Verify authentication
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please sign in.' },
+        { status: 401 }
+      );
+    }
 
-    // Get all campaigns, sorted by most recent
-    console.log('GET /api/campaigns: Calling CampaignModel.find()');
-    const campaigns = await CampaignModel.find()
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .select('-__v')
-      .lean();
+    await connectDB();
+
+    // Get campaigns for this user
+    const { isUsingMemoryDB } = await import('@/lib/db/mongodb');
+    let campaigns: any[] = [];
+    
+    if (isUsingMemoryDB()) {
+      // Use memoryDB's getAll method
+      const { memoryDB } = await import('@/lib/db/memory');
+      campaigns = await memoryDB.campaigns.getAll();
+    } else {
+      // Use Mongoose
+      const campaignsQuery = CampaignModel.find();
+      const campaignsResult = await campaignsQuery;
+      campaigns = Array.isArray(campaignsResult) ? campaignsResult : [];
+    }
+    
+    // Filter by userId
+    campaigns = campaigns.filter((campaign: any) => {
+      const campaignData = campaign.toObject ? campaign.toObject() : campaign;
+      return String((campaignData as any).userId || '') === String(userId);
+    });
+
+    // Sort by createdAt (newest first)
+    campaigns.sort((a: any, b: any) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
 
     return NextResponse.json({
       success: true,
@@ -94,13 +162,48 @@ export async function GET(request: NextRequest) {
 /**
  * Process campaign asynchronously
  */
-async function processCampaignAsync(campaignId: string) {
+async function processCampaignAsync(campaignId: string, userId: string) {
   try {
     await connectDB();
 
-    const campaign = await CampaignModel.findById(campaignId).lean();
-    if (!campaign) {
+    const campaignQuery = CampaignModel.findById(campaignId);
+    
+    // Handle both Mongoose and memoryDB responses
+    let campaignData: any = null;
+    
+    // Check if it's a memoryDB query (has lean method)
+    if (campaignQuery && typeof (campaignQuery as any).lean === 'function') {
+      // MemoryDB returns an object with lean() method
+      campaignData = await (campaignQuery as any).lean();
+    } else if (campaignQuery && typeof (campaignQuery as any).then === 'function') {
+      // Mongoose returns a promise
+      const campaign = await campaignQuery;
+      if (campaign) {
+        campaignData = campaign && typeof (campaign as any).toObject === 'function' 
+          ? (campaign as any).toObject() 
+          : campaign;
+      }
+    } else if (campaignQuery) {
+      // Direct object (fallback)
+      campaignData = campaignQuery;
+    }
+    
+    if (!campaignData) {
       console.error('Campaign not found:', campaignId);
+      return;
+    }
+
+    // Verify ownership
+    const campaignUserId = String(campaignData.userId || '');
+    const requestUserId = String(userId || '');
+    
+    if (campaignUserId !== requestUserId) {
+      console.error('Unauthorized campaign access:', {
+        campaignId,
+        campaignUserId,
+        requestUserId,
+        match: campaignUserId === requestUserId,
+      });
       return;
     }
 
@@ -108,8 +211,11 @@ async function processCampaignAsync(campaignId: string) {
       await CampaignModel.findByIdAndUpdate(campaignId, { status });
     };
 
+    // Type assertion for campaign data
+    const typedCampaign = campaignData as Campaign;
+
     // Run the agent service
-    const result = await agentService.processCampaign(campaign, updateStatus);
+    const result = await agentService.processCampaign(typedCampaign, updateStatus);
 
     // Update campaign with results
     await CampaignModel.findByIdAndUpdate(campaignId, {

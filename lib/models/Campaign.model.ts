@@ -78,6 +78,11 @@ const CampaignSchema = new Schema<Campaign>({
     required: true,
     enum: ['awareness', 'engagement', 'clicks', 'conversions'],
   },
+  userId: {
+    type: String,
+    required: true,
+    index: true,
+  },
   status: {
     type: String,
     enum: ['pending', 'researching', 'generating-content', 'generating-images', 'critiquing', 'completed', 'failed'],
@@ -95,6 +100,7 @@ const CampaignSchema = new Schema<Campaign>({
 // Index for efficient querying
 CampaignSchema.index({ createdAt: -1 });
 CampaignSchema.index({ status: 1 });
+CampaignSchema.index({ userId: 1, createdAt: -1 }); // Compound index for user's campaigns
 
 const MongooseCampaignModel = models.Campaign || model<Campaign>('Campaign', CampaignSchema);
 

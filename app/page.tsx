@@ -1,10 +1,28 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Sparkles, Target, Zap, CheckCircle } from 'lucide-react';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 export default function Home() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    // Redirect authenticated users to dashboard
+    if (!loading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, loading, router]);
+
+  // Don't show landing page if user is authenticated (will redirect)
+  if (loading || user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen relative">
       <AnimatedBackground />
@@ -21,9 +39,9 @@ export default function Home() {
 
             {/* Headline */}
             <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold text-white leading-tight">
-              The Agentic
+              .Ad
               <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                {' '}Marketer
+                {''}Flow
               </span>
             </h1>
 
@@ -42,6 +60,12 @@ export default function Home() {
               >
                 Start a Campaign
                 <ArrowRight className="w-5 h-5" />
+              </Link>
+              <Link
+                href="/login"
+                className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg border border-white/20 transition-all duration-200 text-lg"
+              >
+                Sign In
               </Link>
               <Link
                 href="#how-it-works"

@@ -1,7 +1,8 @@
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { BrandResearch, Platform } from '../types/campaign.types';
+import type { BrandResearch, Platform, GeneratedContent } from '../types/campaign.types';
+import { textOverlayService } from './text-overlay.service';
 
 const STABILITY_API_KEY = process.env.STABILITY_API_KEY;
 const STABILITY_API_HOST = 'https://api.stability.ai';
@@ -19,7 +20,8 @@ export class ImageService {
   async generateImages(
     brandResearch: BrandResearch,
     platforms: Platform[],
-    campaignId: string
+    campaignId: string,
+    generatedContent?: GeneratedContent
   ): Promise<{ platform: Platform; url: string; width: number; height: number }[]> {
     const images: { platform: Platform; url: string; width: number; height: number }[] = [];
 
@@ -28,7 +30,8 @@ export class ImageService {
         const image = await this.generateImageForPlatform(
           brandResearch,
           platform,
-          campaignId
+          campaignId,
+          generatedContent
         );
         images.push(image);
       } catch (error: any) {
@@ -43,7 +46,8 @@ export class ImageService {
   private async generateImageForPlatform(
     brandResearch: BrandResearch,
     platform: Platform,
-    campaignId: string
+    campaignId: string,
+    generatedContent?: GeneratedContent
   ): Promise<{ platform: Platform; url: string; width: number; height: number }> {
     const dimensions = this.getPlatformDimensions(platform);
     const prompt = this.buildImagePrompt(brandResearch, platform);
@@ -95,6 +99,35 @@ export class ImageService {
       const buffer = Buffer.from(image.base64, 'base64');
       fs.writeFileSync(filePath, buffer);
 
+      // Add text overlay if headline is available
+      let finalBuffer: Buffer = buffer;
+      if (generatedContent) {
+        const headline = textOverlayService.extractHeadline(platform, generatedContent);
+        if (headline) {
+          try {
+            const overlayBuffer = await textOverlayService.addTextOverlay(filePath, {
+              text: headline,
+              width: dimensions.width,
+              height: dimensions.height,
+              fontSize: this.getFontSizeForPlatform(platform, dimensions.height),
+              fontColor: '#FFFFFF',
+              backgroundColor: 'rgba(0, 0, 0, 0.75)',
+              position: 'bottom',
+              padding: 20,
+              maxWidth: dimensions.width * 0.9,
+            });
+            
+            finalBuffer = Buffer.from(overlayBuffer);
+            
+            // Save the image with text overlay
+            fs.writeFileSync(filePath, finalBuffer);
+          } catch (overlayError: any) {
+            console.error(`Text overlay failed for ${platform}, using original image:`, overlayError.message);
+            // Continue with original image if overlay fails
+          }
+        }
+      }
+
       return {
         platform,
         url: `/generated/${fileName}`,
@@ -112,6 +145,23 @@ export class ImageService {
         height: dimensions.height,
       };
     }
+  }
+
+  /**
+   * Get appropriate font size based on platform and image height
+   */
+  private getFontSizeForPlatform(platform: Platform, imageHeight: number): number {
+    // Scale font size based on image height (base: 60px for 1024px height)
+    const baseFontSize = 60;
+    const scaleFactor = imageHeight / 1024;
+    
+    const platformFontSizes = {
+      instagram: baseFontSize * scaleFactor,
+      linkedin: baseFontSize * scaleFactor * 0.9, // Slightly smaller for LinkedIn
+      twitter: baseFontSize * scaleFactor * 0.85,  // Smaller for Twitter
+    };
+
+    return Math.max(32, Math.min(80, platformFontSizes[platform])); // Clamp between 32-80px
   }
 
   private buildImagePrompt(brandResearch: BrandResearch, platform: Platform): string {

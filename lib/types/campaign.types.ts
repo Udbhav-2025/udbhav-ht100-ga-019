@@ -52,6 +52,7 @@ export interface Campaign {
   platforms: ('instagram' | 'linkedin' | 'twitter')[];
   tone: string;
   goal: string;
+  userId: string; // Firebase UID
   status: 'pending' | 'researching' | 'generating-content' | 'generating-images' | 'critiquing' | 'completed' | 'failed';
   brandResearch?: BrandResearch;
   generatedContent?: GeneratedContent;

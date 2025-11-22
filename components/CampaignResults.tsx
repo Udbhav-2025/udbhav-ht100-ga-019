@@ -267,6 +267,7 @@ export default function CampaignResults({ campaign, onRegenerate }: CampaignResu
                         src={image.url}
                         alt={`${image.platform} ad`}
                         fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-cover"
                       />
                     </div>

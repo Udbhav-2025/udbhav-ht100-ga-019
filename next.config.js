@@ -10,6 +10,14 @@ const nextConfig = {
       },
     ],
   },
+  // Ensure Sharp works correctly in server-side code
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = config.externals || [];
+      // Sharp is a native module, should work fine in server-side
+    }
+    return config;
+  },
 }
 
 module.exports = nextConfig

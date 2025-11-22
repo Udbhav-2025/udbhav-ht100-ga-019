@@ -55,7 +55,8 @@ export class AgentService {
       const generatedImages = await imageService.generateImages(
         brandResearch,
         campaign.platforms,
-        campaign._id as string
+        campaign._id as string,
+        refinedContent // Pass refined content for text overlay
       );
 
       // Step 6: Final Critique Summary

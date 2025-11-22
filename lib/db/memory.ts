@@ -124,11 +124,57 @@ export const memoryDB = {
                     },
                   };
                 },
+                // Allow calling lean() directly without select()
+                lean: async () => {
+                  console.log('MemoryDB: lean called (direct)');
+                  const result = Array.from(campaigns.values())
+                    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+                    .slice(0, n)
+                    .map(c => {
+                      const { toObject, ...rest } = c;
+                      return rest;
+                    });
+                  console.log(`MemoryDB: Returning ${result.length} campaigns`);
+                  return result;
+                },
               };
+            },
+            // Allow calling lean() directly without limit()
+            lean: async () => {
+              console.log('MemoryDB: lean called (direct, no limit)');
+              const result = Array.from(campaigns.values())
+                .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+                .map(c => {
+                  const { toObject, ...rest } = c;
+                  return rest;
+                });
+              console.log(`MemoryDB: Returning ${result.length} campaigns`);
+              return result;
             },
           };
         },
+        // Allow calling lean() directly without sort()
+        lean: async () => {
+          console.log('MemoryDB: lean called (direct, no sort)');
+          const result = Array.from(campaigns.values()).map(c => {
+            const { toObject, ...rest } = c;
+            return rest;
+          });
+          console.log(`MemoryDB: Returning ${result.length} campaigns`);
+          return result;
+        },
       };
+    },
+    
+    // Simple method to get all campaigns
+    getAll: async () => {
+      console.log('MemoryDB: getAll called');
+      const result = Array.from(campaigns.values()).map(c => {
+        const { toObject, ...rest } = c;
+        return rest;
+      });
+      console.log(`MemoryDB: Returning ${result.length} campaigns from getAll`);
+      return result;
     },
   },
 };

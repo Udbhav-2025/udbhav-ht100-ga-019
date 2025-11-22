@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db/mongodb';
 import { CampaignModel } from '@/lib/models/Campaign.model';
 import { agentService } from '@/lib/services/agent.service';
+import { getUserIdFromRequest } from '@/lib/middleware/auth.middleware';
 import type { Campaign } from '@/lib/types/campaign.types';
 
 export async function POST(
@@ -9,6 +10,15 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Verify authentication
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please sign in.' },
+        { status: 401 }
+      );
+    }
+
     await connectDB();
 
     const body = await request.json();
@@ -20,6 +30,15 @@ export async function POST(
       return NextResponse.json(
         { error: 'Campaign not found' },
         { status: 404 }
+      );
+    }
+
+    // Verify ownership
+    const campaignData = campaign.toObject ? campaign.toObject() : campaign;
+    if ((campaignData as any).userId !== userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized. You do not have access to this campaign.' },
+        { status: 403 }
       );
     }
 

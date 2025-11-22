@@ -3,23 +3,41 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import useSWR from 'swr';
+import Navbar from '@/components/Navbar';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import StatusProgress from '@/components/StatusProgress';
 import CampaignResults from '@/components/CampaignResults';
 import type { Campaign } from '@/lib/types/campaign.types';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { authenticatedFetch } from '@/lib/utils/api';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = async (url: string) => {
+  const res = await authenticatedFetch(url);
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: 'Failed to fetch campaign' }));
+    throw new Error(error.error || `Failed to fetch: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+};
 
 export default function CampaignPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [isRegenerating, setIsRegenerating] = useState(false);
 
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]);
+
   // Fetch campaign with auto-refresh while processing
+  // Only fetch if user is authenticated
   const { data, error, mutate } = useSWR(
-    `/api/campaigns/${params.id}`,
+    user && !authLoading ? `/api/campaigns/${params.id}` : null,
     fetcher,
     {
       refreshInterval: (data) => {
@@ -29,6 +47,12 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
         return ['pending', 'researching', 'generating-content', 'generating-images', 'critiquing'].includes(status)
           ? 2000 // Poll every 2 seconds
           : 0; // Stop polling
+      },
+      onError: (error) => {
+        console.error('SWR fetch error:', error);
+        if (error.message?.includes('403')) {
+          toast.error('You do not have access to this campaign');
+        }
       },
     }
   );
@@ -47,9 +71,8 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
     setIsRegenerating(true);
     
     try {
-      const response = await fetch(`/api/campaigns/${params.id}/regenerate`, {
+      const response = await authenticatedFetch(`/api/campaigns/${params.id}/regenerate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tone: newTone || undefined }),
       });
 
@@ -68,20 +91,47 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await authenticatedFetch(`/api/campaigns/${params.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to delete campaign' }));
+        throw new Error(error.error || 'Failed to delete campaign');
+      }
+
+      toast.success('Campaign deleted successfully');
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('Error deleting campaign:', error);
+      toast.error(error.message || 'Failed to delete campaign');
+    }
+  };
+
   if (error) {
     return (
-      <div className="min-h-screen relative flex items-center justify-center">
+      <div className="min-h-screen relative">
         <AnimatedBackground />
-        <div className="relative z-10 text-center">
-          <h1 className="text-4xl font-bold text-white mb-4">Error Loading Campaign</h1>
-          <p className="text-gray-400 mb-8">Unable to load campaign details</p>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Home
-          </Link>
+        <div className="relative z-10">
+          <Navbar />
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex items-center justify-center min-h-[calc(100vh-4rem)]">
+            <div className="text-center max-w-2xl">
+              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Error Loading Campaign</h1>
+              <p className="text-gray-300 mb-8 text-lg">Unable to load campaign details</p>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-lg transition-all shadow-lg shadow-blue-500/30"
+              >
+                Back to Dashboard
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -106,21 +156,34 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
     <div className="min-h-screen relative">
       <AnimatedBackground />
       
-      <div className="relative z-10 min-h-screen py-12 px-4">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition mb-4"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Home
-            </Link>
-            <h1 className="text-4xl md:text-5xl font-bold text-white">
-              {isProcessing ? 'Creating Your Campaign...' : 'Campaign Ready!'}
-            </h1>
-          </div>
+      <div className="relative z-10">
+        <Navbar />
+        
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className="max-w-6xl mx-auto">
+            {/* Header */}
+            <div className="mb-8 sm:mb-12">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">
+                    {isProcessing ? 'Creating Your Campaign...' : 'Campaign Ready!'}
+                  </h1>
+                  <p className="text-lg text-gray-300">
+                    {isProcessing ? 'Our AI agents are working on your campaign' : 'Your campaign is ready to use'}
+                  </p>
+                </div>
+                {!isProcessing && campaign.status !== 'failed' && (
+                  <button
+                    onClick={handleDelete}
+                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg flex items-center gap-2 transition border border-red-500/30"
+                    title="Delete campaign"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Delete</span>
+                  </button>
+                )}
+              </div>
+            </div>
 
           {/* Content */}
           {isProcessing && (
@@ -147,7 +210,8 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
               </Link>
             </div>
           )}
-        </div>
+          </div>
+        </main>
       </div>
     </div>
   );

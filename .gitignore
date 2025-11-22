@@ -48,6 +48,9 @@ next-env.d.ts
 # Generated assets
 /public/generated
 
+# Firebase service account (contains sensitive keys)
+*firebase-adminsdk*.json
+
 # IDE and Editor files
 .vscode/
 .idea/
